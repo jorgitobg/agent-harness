@@ -20,7 +20,7 @@ Early and built in the open, one user story per pull request.
 | Story | What | State |
 |---|---|---|
 | US1 | Typed tool registry with JSON Schema validation | ✅ done |
-| US2 | Permission levels, allow/deny lists, human confirmation | planned |
+| US2 | Permission levels, allow/deny lists, human confirmation | ✅ done (CLI prompt adapter pending) |
 | US3 | Agent loop with step / token / cost / time budgets | planned |
 | US4 | Context compaction | planned |
 | US5 | Pre/post tool hooks | planned |
