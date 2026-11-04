@@ -51,6 +51,7 @@ class ToolErrorKind(StrEnum):
     UNKNOWN_TOOL = "unknown_tool"
     INVALID_ARGUMENTS = "invalid_arguments"
     DENIED = "denied"
+    BLOCKED_BY_HOOK = "blocked_by_hook"
     EXECUTION_FAILED = "execution_failed"
 
 
