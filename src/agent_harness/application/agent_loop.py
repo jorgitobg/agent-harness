@@ -1,5 +1,8 @@
 """Agent loop: model call -> tool calls -> model call, until a final answer or a budget stop.
 
+Context compaction (optional) runs before each model call; its summariser usage counts
+toward the budget.
+
 Budget checks, in order, at the top of each iteration: steps, then timeout.
 After each model call: timeout, total tokens, cost. A breached budget wins over a
 final answer produced by the same turn, so a run never exceeds its limits silently.
@@ -13,11 +16,14 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from agent_harness.application.registry import ToolRegistry
 from agent_harness.domain.loop import AgentRun, Budget, Message, ModelTurn, Role, StopReason, Usage
 from agent_harness.domain.tools import ToolCall, ToolResult, ToolSpec
+
+if TYPE_CHECKING:
+    from agent_harness.application.context import ContextCompactor
 
 
 class ModelClient(Protocol):
@@ -44,7 +50,9 @@ class AgentLoop:
         *,
         dispatcher: ToolDispatcher | None = None,
         clock: Clock = time.monotonic,
+        compactor: ContextCompactor | None = None,
     ) -> None:
+        self._compactor = compactor
         self._model = model
         self._tools = tools
         self._dispatcher: ToolDispatcher = dispatcher if dispatcher is not None else tools
@@ -75,6 +83,12 @@ class AgentLoop:
                 return stop(StopReason.MAX_STEPS)
             if elapsed() >= self._budget.timeout_s:
                 return stop(StopReason.TIMEOUT)
+
+            if self._compactor is not None:
+                compaction = self._compactor.compact(transcript)
+                usage = usage + compaction.usage
+                if compaction.compacted:
+                    transcript[:] = compaction.messages
 
             try:
                 turn = self._model.complete(tuple(transcript), specs)
