@@ -85,6 +85,41 @@ registry.dispatch(ToolCall("c2", "add", {"a": "two"})).for_model()
 
 Model mistakes never raise: they come back as structured results the model can read and fix.
 
+### Offline demo (no keys, no network)
+
+```bash
+python -m agent_harness.demo          # operator approves the write
+python -m agent_harness.demo --deny   # operator refuses the write
+```
+
+Real loop, registry, guardrails and budgets, driven by a scripted model with two in-memory
+tools: `search_notes` (read, allowed) and `write_note` (write, asks the operator first).
+Output of the two runs, pasted verbatim from the commands above:
+
+```text
+$ python -m agent_harness.demo
+operator answer to confirmations: yes
+  tool search_notes: ok -> ['todo']
+  tool write_note: ok -> saved note 'plan'
+confirmations asked: [('write_note', 'write')]
+stop_reason=final_answer steps=3
+final_answer="Done: the plan is saved as note 'plan'."
+notes now: ['plan', 'todo', 'welcome']
+
+$ python -m agent_harness.demo --deny
+operator answer to confirmations: no
+  tool search_notes: ok -> ['todo']
+  tool write_note: refused/failed (denied) -> operator refused tool 'write_note'
+confirmations asked: [('write_note', 'write')]
+stop_reason=final_answer steps=3
+final_answer="Done: the plan is saved as note 'plan'."
+notes now: ['todo', 'welcome']
+```
+
+Note the last line of the `--deny` run: the scripted model does not read tool results, so it
+still claims success. The guard did its job (`notes now` has no `plan`). A real model would
+read the `denied` result and react; the harness does not rely on the model to enforce policy.
+
 ## Design decisions
 
 - [ADR 0001](docs/adr/0001-hexagonal-core-without-agent-framework.md) — hexagonal core, no agent framework: more code, but every concept is visible and testable.
