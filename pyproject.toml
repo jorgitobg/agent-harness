@@ -5,7 +5,7 @@ description = "A readable agent harness built from scratch: typed tools, guardra
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
-authors = [{ name = "Jorge Benjumea" }]
+authors = [{ name = "jorgitobg" }]
 dependencies = ["jsonschema>=4.22"]
 
 [project.optional-dependencies]
