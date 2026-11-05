@@ -48,6 +48,12 @@ As an operator I decide what an agent may do without asking.
 ### US6 — Sub-agents
 - A tool can spawn a sub-agent with its own isolated transcript and budget; only its final answer returns to the parent.
 
+### US7a — OpenAI-compatible model adapter (done)
+- Given a chat-completions endpoint with tool calling, when the loop calls the model, then the transcript and tool specs are sent in the OpenAI format and tool calls come back as `ToolCall`s with parsed arguments.
+- Given malformed JSON, a tool call without a name, non-object arguments, an empty reply or an exhausted token budget, then the call fails with a typed `model_error` stop and a message that never contains bodies or credentials.
+- Given a non-https endpoint that is not localhost, then it is refused. Responses are size-capped.
+- Given a recorded real conversation, then replaying it reproduces the recorded requests exactly.
+
 ### US7 — Model router
 - Routine steps go to a cheap/local model, hard steps to a stronger one, with automatic fallback on error.
 

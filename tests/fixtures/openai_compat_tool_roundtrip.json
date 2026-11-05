@@ -1,0 +1,103 @@
+[
+  {
+    "request": {
+      "messages": [
+        {
+          "content": "Use the tools when needed. Be brief.",
+          "role": "system"
+        },
+        {
+          "content": "Search my notes for the word 'story' and tell me the title of the matching note.",
+          "role": "user"
+        }
+      ],
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "tool_names": [
+        "search_notes",
+        "write_note"
+      ]
+    },
+    "response": {
+      "choices": [
+        {
+          "finish_reason": "tool_calls",
+          "message": {
+            "content": null,
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": "{\"query\":\"story\"}",
+                  "name": "search_notes"
+                },
+                "id": "call-be303d26-cce8-4328-b772-53151e2cc470",
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "usage": {
+        "completion_tokens": 46,
+        "cost": 0,
+        "prompt_tokens": 417,
+        "total_tokens": 463
+      }
+    }
+  },
+  {
+    "request": {
+      "messages": [
+        {
+          "content": "Use the tools when needed. Be brief.",
+          "role": "system"
+        },
+        {
+          "content": "Search my notes for the word 'story' and tell me the title of the matching note.",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"query\": \"story\"}",
+                "name": "search_notes"
+              },
+              "id": "call-be303d26-cce8-4328-b772-53151e2cc470",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\"ok\": true, \"output\": [\"todo\"]}",
+          "role": "tool",
+          "tool_call_id": "call-be303d26-cce8-4328-b772-53151e2cc470"
+        }
+      ],
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "tool_names": [
+        "search_notes",
+        "write_note"
+      ]
+    },
+    "response": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The note titled **\u201ctodo\u201d** matched the search for the word *story*.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "usage": {
+        "completion_tokens": 108,
+        "cost": 0,
+        "prompt_tokens": 471,
+        "total_tokens": 579
+      }
+    }
+  }
+]
