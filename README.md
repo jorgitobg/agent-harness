@@ -25,7 +25,7 @@ Early and built in the open, one user story per pull request.
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
 | US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (not yet in the demo) |
 | US6 | Sub-agents with isolated context | planned |
-| US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | planned |
+| US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | in progress: the OpenAI-compatible adapter is done, the router is not |
 | US8 | Tracing, replay and evals | planned |
 
 Full spec with acceptance criteria: [docs/spec/0001-agent-harness.md](docs/spec/0001-agent-harness.md).
@@ -84,6 +84,23 @@ registry.dispatch(ToolCall("c2", "add", {"a": "two"})).for_model()
 ```
 
 Model mistakes never raise: they come back as structured results the model can read and fix.
+
+### Against a real model (OpenAI-compatible endpoint)
+
+`OpenAICompatModel` implements the model port for any chat-completions endpoint with tool calling (hosted services, OpenRouter, llama.cpp, Ollama). Standard library only; https is required except for `localhost`.
+
+```bash
+AGENT_HARNESS_API_KEY=... python -m agent_harness.live \
+  --base-url https://openrouter.ai/api/v1 --model <model-name> \
+  "Search my notes for the word 'story' and tell me the title of the matching note."
+```
+
+The key comes from the environment only. The example agent can read notes but has no operator attached, so its writes are refused.
+
+How it was checked, and what that does and does not show:
+- The test suite never touches the network. The contract tests replay a **conversation recorded from a real run** (a free-tier model on OpenRouter, 2026-11-05: the model asked for `search_notes`, the harness returned the result, the model answered). The tests assert that the requests the adapter builds are identical to the ones the real service accepted. The fixture holds no headers or credentials.
+- The same command was run live against that model and answered correctly in 2 steps. With `--max-tokens 40` the model spent its whole budget on hidden reasoning and returned nothing; the adapter reports that as a typed `model_error` stop (`token budget exhausted`) and the key never appears in output.
+- One free model on one day is an anecdote, not a benchmark. Another free model returned `429` (rate limited) in the same session, which is reported the same typed way. Error messages carry a status code or a short reason, never request or response bodies.
 
 ### Offline demo (no keys, no network)
 
