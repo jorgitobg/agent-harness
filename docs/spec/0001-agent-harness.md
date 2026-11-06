@@ -54,8 +54,9 @@ As an operator I decide what an agent may do without asking.
 - Given a non-https endpoint that is not localhost, then it is refused. Responses are size-capped.
 - Given a recorded real conversation, then replaying it reproduces the recorded requests exactly.
 
-### US7 — Model router
-- Routine steps go to a cheap/local model, hard steps to a stronger one, with automatic fallback on error.
+### US7 — Model router (done)
+- Given a classifier that marks a step hard (default: the last tool call failed, or the transcript is longer than 8 messages), when the loop calls the model, then the strong model is tried first for hard steps and the cheap one otherwise.
+- Given the chosen model raises, then the other tier answers and the route records `fell_back`. Given both raise, then the loop stops with `model_error`.
 
 ### US8 — Tracing, replay and evals
 - Each model and tool call emits a span (model, tokens, latency, cost).

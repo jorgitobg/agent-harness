@@ -27,7 +27,7 @@ def test_approved_write_runs_and_is_recorded(capsys: pytest.CaptureFixture[str])
 
     assert "tool write_note: ok -> saved note 'plan'" in out
     assert "confirmations asked: [('write_note', 'write')]" in out
-    assert "stop_reason=final_answer steps=3" in out
+    assert "stop_reason=final_answer steps=4" in out
     assert "plan" in demo.NOTES
 
 
@@ -54,3 +54,17 @@ def test_scripted_confirmation_fails_loudly_when_out_of_answers() -> None:
     confirmation = ScriptedConfirmation(answers=[])
     with pytest.raises(ConfirmationScriptExhausted):
         confirmation.confirm(ToolCall("w1", "write_note", {}), _write_spec())
+
+
+def test_secret_is_redacted_before_the_model_sees_it(capsys: pytest.CaptureFixture[str]) -> None:
+    demo.main([])
+    out = capsys.readouterr().out
+    assert "[REDACTED]" in out
+    assert "sk-DEMO" not in out
+
+
+def test_router_flag_falls_back_to_strong(capsys: pytest.CaptureFixture[str]) -> None:
+    demo.main(["--router"])
+    out = capsys.readouterr().out
+    assert "stop_reason=final_answer steps=4" in out
+    assert out.strip().splitlines()[-1].startswith("model routes: ['cheap->strong'")
