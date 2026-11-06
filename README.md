@@ -23,9 +23,9 @@ Early and built in the open, one user story per pull request.
 | US2 | Permission levels, allow/deny lists, human confirmation | ✅ done (CLI prompt adapter pending) |
 | US3 | Agent loop with step / token / cost / time budgets, typed stop reasons | ✅ done |
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
-| US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (not yet in the demo) |
+| US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (wired into the demo: secret redaction) |
 | US6 | Sub-agents with isolated context | planned |
-| US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | in progress: the OpenAI-compatible adapter is done, the router is not |
+| US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | ✅ router done (rule-based: failed tool or long transcript → strong tier; fallback on error; wired into `--router` demo). Not done: cost/latency-aware routing, real-model evaluation of the heuristic |
 | US8 | Tracing, replay and evals | planned |
 
 Full spec with acceptance criteria: [docs/spec/0001-agent-harness.md](docs/spec/0001-agent-harness.md).
@@ -107,30 +107,45 @@ How it was checked, and what that does and does not show:
 ```bash
 python -m agent_harness.demo          # operator approves the write
 python -m agent_harness.demo --deny   # operator refuses the write
+python -m agent_harness.demo --router # cheap tier down, router falls back
 ```
 
 Real loop, registry, guardrails and budgets, driven by a scripted model with two in-memory
 tools: `search_notes` (read, allowed) and `write_note` (write, asks the operator first).
-Output of the two runs, pasted verbatim from the commands above:
+Output of the three runs, pasted verbatim from the commands above (`--router` puts a cheap
+tier that is down in front of the scripted model; the US7 router falls back to the strong tier):
 
 ```text
 $ python -m agent_harness.demo
 operator answer to confirmations: yes
   tool search_notes: ok -> ['todo']
+  tool read_note: ok -> Staging login uses token [REDACTED] (fake, for the redaction demo).
   tool write_note: ok -> saved note 'plan'
 confirmations asked: [('write_note', 'write')]
-stop_reason=final_answer steps=3
+stop_reason=final_answer steps=4
 final_answer="Done: the plan is saved as note 'plan'."
-notes now: ['plan', 'todo', 'welcome']
+notes now: ['deploy', 'plan', 'todo', 'welcome']
 
 $ python -m agent_harness.demo --deny
 operator answer to confirmations: no
   tool search_notes: ok -> ['todo']
+  tool read_note: ok -> Staging login uses token [REDACTED] (fake, for the redaction demo).
   tool write_note: refused/failed (denied) -> operator refused tool 'write_note'
 confirmations asked: [('write_note', 'write')]
-stop_reason=final_answer steps=3
+stop_reason=final_answer steps=4
 final_answer="Done: the plan is saved as note 'plan'."
-notes now: ['todo', 'welcome']
+notes now: ['deploy', 'todo', 'welcome']
+
+$ python -m agent_harness.demo --router
+operator answer to confirmations: yes
+  tool search_notes: ok -> ['todo']
+  tool read_note: ok -> Staging login uses token [REDACTED] (fake, for the redaction demo).
+  tool write_note: ok -> saved note 'plan'
+confirmations asked: [('write_note', 'write')]
+stop_reason=final_answer steps=4
+final_answer="Done: the plan is saved as note 'plan'."
+notes now: ['deploy', 'plan', 'todo', 'welcome']
+model routes: ['cheap->strong', 'cheap->strong', 'cheap->strong', 'cheap->strong']
 ```
 
 Note the last line of the `--deny` run: the scripted model does not read tool results, so it
