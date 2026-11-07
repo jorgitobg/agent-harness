@@ -22,6 +22,7 @@ from agent_harness.application.guardrails import GuardedRegistry
 from agent_harness.application.hooks import HookedDispatcher
 from agent_harness.application.registry import ToolRegistry
 from agent_harness.application.router import ModelRouter
+from agent_harness.application.subagent import SubAgent
 from agent_harness.domain.loop import Budget, ModelTurn, Usage
 from agent_harness.domain.policy import PermissionPolicy
 from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolResult, ToolSpec
@@ -151,6 +152,69 @@ class _Offline:
         raise ConnectionError("tier unavailable")
 
 
+def run_subagent() -> int:
+    """Parent delegates a reading task; the child's tool calls stay out of the parent transcript."""
+    child_model = ScriptedModel(
+        [
+            ModelTurn(
+                text="Reading the deploy note.",
+                tool_calls=(ToolCall("k1", "read_note", {"title": "deploy"}),),
+                usage=Usage(input_tokens=80, output_tokens=20),
+            ),
+            ModelTurn(
+                text="The deploy note says staging uses a (redacted) token.",
+                usage=Usage(input_tokens=90, output_tokens=15),
+            ),
+        ]
+    )
+    child_registry = build_registry(with_read_note=True)
+    sub = SubAgent(
+        "delegate_reading",
+        "Hand a read-only note question to a sub-agent; returns its final answer only.",
+        lambda: AgentLoop(
+            child_model,
+            child_registry,
+            Budget(max_steps=3),
+            dispatcher=HookedDispatcher(child_registry, post=[RedactSecrets()]),
+        ),
+    )
+    parent_registry = ToolRegistry()
+    parent_registry.register(sub.spec, sub.handle)
+    parent_model = ScriptedModel(
+        [
+            ModelTurn(
+                text="Delegating.",
+                tool_calls=(
+                    ToolCall("p1", "delegate_reading", {"task": "What does the deploy note say?"}),
+                ),
+                usage=Usage(input_tokens=50, output_tokens=10),
+            ),
+            ModelTurn(text="Summary ready.", usage=Usage(input_tokens=60, output_tokens=5)),
+        ]
+    )
+    result = AgentLoop(parent_model, parent_registry, Budget(max_steps=4)).run(
+        "Summarise the deploy note."
+    )
+
+    print(
+        f"parent transcript: {len(result.transcript)} messages, tool calls: "
+        f"{[m.tool_result.name for m in result.transcript if m.tool_result is not None]}"
+    )
+    for message in result.transcript:
+        if message.tool_result is not None:
+            print(f"  parent got: {message.tool_result.output}")
+    child = sub.runs[0]
+    print(
+        f"child transcript: {len(child.transcript)} messages, steps={child.steps}, "
+        f"tokens={child.usage.total_tokens}"
+    )
+    print(
+        f"parent stop_reason={result.stop_reason.value} steps={result.steps} "
+        f"tokens={result.usage.total_tokens}"
+    )
+    return 0
+
+
 def run(approve: bool, router: bool = False) -> int:
     registry = build_registry(with_read_note=True)
     confirmation = ScriptedConfirmation(answers=[approve])
@@ -184,6 +248,8 @@ def run(approve: bool, router: bool = False) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if "--subagent" in args:
+        return run_subagent()
     return run(approve="--deny" not in args, router="--router" in args)
 
 

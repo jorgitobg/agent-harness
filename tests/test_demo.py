@@ -68,3 +68,12 @@ def test_router_flag_falls_back_to_strong(capsys: pytest.CaptureFixture[str]) ->
     out = capsys.readouterr().out
     assert "stop_reason=final_answer steps=4" in out
     assert out.strip().splitlines()[-1].startswith("model routes: ['cheap->strong'")
+
+
+def test_subagent_demo_keeps_child_work_out_of_parent(capsys: pytest.CaptureFixture[str]) -> None:
+    assert demo.main(["--subagent"]) == 0
+    out = capsys.readouterr().out
+
+    assert "parent transcript: 4 messages, tool calls: ['delegate_reading']" in out
+    assert "child transcript: 4 messages, steps=2, tokens=205" in out
+    assert "read_note" not in out.split("child transcript")[0]
