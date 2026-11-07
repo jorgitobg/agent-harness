@@ -24,7 +24,7 @@ Early and built in the open, one user story per pull request.
 | US3 | Agent loop with step / token / cost / time budgets, typed stop reasons | ✅ done |
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
 | US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (wired into the demo: secret redaction) |
-| US6 | Sub-agents with isolated context | planned |
+| US6 | Sub-agents: a tool that runs a child loop with its own transcript and budget; only the final answer returns | ✅ done (`--subagent` demo). Not done: charging child spend to the parent budget (usage is recorded in `SubAgent.runs`) |
 | US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | ✅ router done (rule-based: failed tool or long transcript → strong tier; fallback on error; wired into `--router` demo). Not done: cost/latency-aware routing, real-model evaluation of the heuristic |
 | US8 | Tracing, replay and evals | planned |
 
@@ -108,6 +108,7 @@ How it was checked, and what that does and does not show:
 python -m agent_harness.demo          # operator approves the write
 python -m agent_harness.demo --deny   # operator refuses the write
 python -m agent_harness.demo --router # cheap tier down, router falls back
+python -m agent_harness.demo --subagent # parent delegates to an isolated child loop
 ```
 
 Real loop, registry, guardrails and budgets, driven by a scripted model with two in-memory
@@ -147,6 +148,16 @@ final_answer="Done: the plan is saved as note 'plan'."
 notes now: ['deploy', 'plan', 'todo', 'welcome']
 model routes: ['cheap->strong', 'cheap->strong', 'cheap->strong', 'cheap->strong']
 ```
+
+```text
+$ python -m agent_harness.demo --subagent
+parent transcript: 4 messages, tool calls: ['delegate_reading']
+  parent got: The deploy note says staging uses a (redacted) token.
+child transcript: 4 messages, steps=2, tokens=205
+parent stop_reason=final_answer steps=2 tokens=125
+```
+
+The parent transcript holds one tool result (the child's final answer); the child's `read_note` call and redaction stay inside the child's own 4-message transcript.
 
 Note the last line of the `--deny` run: the scripted model does not read tool results, so it
 still claims success. The guard did its job (`notes now` has no `plan`). A real model would

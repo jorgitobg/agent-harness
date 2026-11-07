@@ -45,8 +45,11 @@ As an operator I decide what an agent may do without asking.
 ### US5 — Hooks
 - Pre-tool hooks can block or rewrite a call; post-tool hooks can observe or redact results.
 
-### US6 — Sub-agents
-- A tool can spawn a sub-agent with its own isolated transcript and budget; only its final answer returns to the parent.
+### US6 — Sub-agents (done)
+- Given a parent that calls a sub-agent tool, when the child finishes with a final answer, then only that answer is a tool result in the parent transcript; the child's messages and tool calls stay in the child's own run.
+- Given the child's first message, then it contains only the delegated task, not the parent context.
+- Given the child hits a budget or model error, then the parent receives a failed tool result naming the stop reason and carries on.
+- Given two calls, then each runs in a fresh child; every child run is recorded in `SubAgent.runs` with its usage. (Charging that usage to the parent budget is not done.)
 
 ### US7a — OpenAI-compatible model adapter (done)
 - Given a chat-completions endpoint with tool calling, when the loop calls the model, then the transcript and tool specs are sent in the OpenAI format and tool calls come back as `ToolCall`s with parsed arguments.
