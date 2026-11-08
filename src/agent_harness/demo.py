@@ -3,8 +3,8 @@
 Runs the real loop, registry, guardrails and budgets with a scripted model and two
 in-memory tools. No API keys, no network. The model asks for a read (allowed by
 default) and then a write (asks the operator first). Pass ``--router`` to put a cheap tier
-that is down in front of the scripted model (the router falls back). Pass ``--trace`` to record spans and
-replay the run with no model. Pass ``--deny`` to answer the
+that is down in front of the scripted model (the router falls back). Pass ``--trace`` to record
+spans and replay the run with no model. Pass ``--deny`` to answer the
 confirmation with "no" and watch the guard refuse the write without running it.
 """
 
