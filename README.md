@@ -24,9 +24,9 @@ Early and built in the open, one user story per pull request.
 | US3 | Agent loop with step / token / cost / time budgets, typed stop reasons | ✅ done |
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
 | US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (wired into the demo: secret redaction) |
-| US6 | Sub-agents: a tool that runs a child loop with its own transcript and budget; only the final answer returns | ✅ done (`--subagent` demo). Not done: charging child spend to the parent budget (usage is recorded in `SubAgent.runs`) |
+| US6 | Sub-agents: a tool that runs a child loop with its own transcript and budget; only the final answer returns | ✅ done (`--subagent` demo). Not done: charging child spend to the parent budget (usage is recorded in `SubAgent.runs`; planned next) |
 | US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | ✅ router done (rule-based: failed tool or long transcript → strong tier; fallback on error; wired into `--router` demo). Not done: cost/latency-aware routing, real-model evaluation of the heuristic |
-| US8 | Tracing, replay and evals | planned |
+| US8 | Tracing, replay and evals | ✅ tracing and replay done (`--trace` demo). Not done: the `evals/` runner over two real models, cost estimation when a model reports none |
 
 Full spec with acceptance criteria: [docs/spec/0001-agent-harness.md](docs/spec/0001-agent-harness.md).
 
@@ -109,6 +109,7 @@ python -m agent_harness.demo          # operator approves the write
 python -m agent_harness.demo --deny   # operator refuses the write
 python -m agent_harness.demo --router # cheap tier down, router falls back
 python -m agent_harness.demo --subagent # parent delegates to an isolated child loop
+python -m agent_harness.demo --trace  # record spans, then replay the run with no model
 ```
 
 Real loop, registry, guardrails and budgets, driven by a scripted model with two in-memory
@@ -162,6 +163,22 @@ The parent transcript holds one tool result (the child's final answer); the chil
 Note the last line of the `--deny` run: the scripted model does not read tool results, so it
 still claims success. The guard did its job (`notes now` has no `plan`). A real model would
 read the `denied` result and react; the harness does not rely on the model to enforce policy.
+
+```text
+$ python -m agent_harness.demo --trace
+span  1 model scripted       latency=50ms tokens=150 cost=$0.0000
+span  2 tool  search_notes   latency=50ms tokens=0 cost=$0.0000
+span  3 model scripted       latency=50ms tokens=150 cost=$0.0000
+span  4 tool  read_note      latency=50ms tokens=0 cost=$0.0000
+span  5 model scripted       latency=50ms tokens=150 cost=$0.0000
+span  6 tool  write_note     latency=50ms tokens=0 cost=$0.0000
+span  7 model scripted       latency=50ms tokens=150 cost=$0.0000
+trace: 7 spans, tokens=600, cost=$0.0000
+replay: stop_reason=final_answer steps=4
+replay identical to original (transcript and usage): True
+```
+
+Every model and tool call becomes a span (name, latency, tokens, reported cost). The demo uses a fake clock, so latency is a fixed 50 ms per call and cost is $0 because the scripted model reports none; with a real adapter these come from the clock and the provider's usage. The trace is serialised to JSON lines and replayed by `ReplayModel` + `ReplayDispatcher` with no model and no tools registered; the replayed transcript and usage are compared with the original. Replay reproduces what was recorded, it does not re-evaluate a changed prompt.
 
 ## Design decisions
 
