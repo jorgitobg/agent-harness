@@ -3,7 +3,8 @@
 Runs the real loop, registry, guardrails and budgets with a scripted model and two
 in-memory tools. No API keys, no network. The model asks for a read (allowed by
 default) and then a write (asks the operator first). Pass ``--router`` to put a cheap tier
-that is down in front of the scripted model (the router falls back). Pass ``--deny`` to answer the
+that is down in front of the scripted model (the router falls back). Pass ``--trace`` to record spans and
+replay the run with no model. Pass ``--deny`` to answer the
 confirmation with "no" and watch the guard refuse the write without running it.
 """
 
@@ -23,6 +24,13 @@ from agent_harness.application.hooks import HookedDispatcher
 from agent_harness.application.registry import ToolRegistry
 from agent_harness.application.router import ModelRouter
 from agent_harness.application.subagent import SubAgent
+from agent_harness.application.tracing import (
+    ReplayDispatcher,
+    ReplayModel,
+    TracedDispatcher,
+    TracedModel,
+    Tracer,
+)
 from agent_harness.domain.loop import Budget, ModelTurn, Usage
 from agent_harness.domain.policy import PermissionPolicy
 from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolResult, ToolSpec
@@ -215,6 +223,44 @@ def run_subagent() -> int:
     return 0
 
 
+def run_trace() -> int:
+    """Record a run as spans, then replay it from the trace with no model and no tools."""
+    ticks = iter(x / 100 for x in range(0, 1000, 5))  # fake clock: every reading advances 50 ms
+    tracer = Tracer(clock=lambda: next(ticks))
+    registry = build_registry(with_read_note=True)
+    guarded = GuardedRegistry(registry, PermissionPolicy(), ScriptedConfirmation(answers=[True]))
+    hooked = HookedDispatcher(guarded, post=[RedactSecrets()])
+    loop = AgentLoop(
+        TracedModel(ScriptedModel(scripted_turns()), tracer, name="scripted"),
+        registry,
+        Budget(max_steps=5),
+        dispatcher=TracedDispatcher(hooked, tracer),
+    )
+    original = loop.run("Find the next step in my notes and save the plan.")
+    for i, span in enumerate(tracer.spans, 1):
+        u = span.usage
+        print(
+            f"span {i:>2} {span.kind.value:<5} {span.name:<14} "
+            f"latency={span.latency_s * 1000:.0f}ms tokens={u.total_tokens} cost=${u.cost_usd:.4f}"
+        )
+    total = tracer.total_usage()
+    print(
+        f"trace: {len(tracer.spans)} spans, tokens={total.total_tokens}, cost=${total.cost_usd:.4f}"
+    )
+
+    spans = Tracer.spans_from_jsonl(tracer.to_jsonl())  # through JSON, as a saved trace would be
+    replayed = AgentLoop(
+        ReplayModel(spans),
+        registry,
+        Budget(max_steps=5),
+        dispatcher=ReplayDispatcher(spans),
+    ).run("Find the next step in my notes and save the plan.")
+    same = replayed.transcript == original.transcript and replayed.usage == original.usage
+    print(f"replay: stop_reason={replayed.stop_reason.value} steps={replayed.steps}")
+    print(f"replay identical to original (transcript and usage): {same}")
+    return 0 if same else 1
+
+
 def run(approve: bool, router: bool = False) -> int:
     registry = build_registry(with_read_note=True)
     confirmation = ScriptedConfirmation(answers=[approve])
@@ -248,6 +294,8 @@ def run(approve: bool, router: bool = False) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if "--trace" in args:
+        return run_trace()
     if "--subagent" in args:
         return run_subagent()
     return run(approve="--deny" not in args, router="--router" in args)

@@ -81,3 +81,8 @@ As an operator I decide what an agent may do without asking.
 ## Delivery order
 
 US1 → US2 → US3 → US4 → US5 → US6 → US7 → US8. Each story ships as its own PR with tests.
+
+### US8a — acceptance (tracing and replay)
+- Given a run through `TracedModel` and `TracedDispatcher`, When it finishes, Then the tracer holds one span per model call and per tool call, with latency, tokens and the cost the model reported.
+- Given a trace serialised to JSON lines, When it is replayed with `ReplayModel` and `ReplayDispatcher` and no tools registered, Then the transcript and usage equal the original run.
+- Given a replay that needs more turns or results than were recorded, Then it fails loudly (`TraceExhausted`; the loop reports `MODEL_ERROR`).
