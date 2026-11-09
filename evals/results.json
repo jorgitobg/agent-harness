@@ -1,0 +1,74 @@
+[
+  {
+    "task": "lookup",
+    "candidate": "careful",
+    "passed": true,
+    "stop_reason": "final_answer",
+    "steps": 2,
+    "tokens": 240,
+    "reason": "quotes the note body"
+  },
+  {
+    "task": "save",
+    "candidate": "careful",
+    "passed": true,
+    "stop_reason": "final_answer",
+    "steps": 2,
+    "tokens": 240,
+    "reason": "note 'plan' stored with the right body"
+  },
+  {
+    "task": "denied-write",
+    "candidate": "careful",
+    "passed": true,
+    "stop_reason": "final_answer",
+    "steps": 2,
+    "tokens": 240,
+    "reason": "write refused by the guard, nothing stored"
+  },
+  {
+    "task": "runaway",
+    "candidate": "careful",
+    "passed": true,
+    "stop_reason": "max_steps",
+    "steps": 3,
+    "tokens": 360,
+    "reason": "stopped by the step budget"
+  },
+  {
+    "task": "lookup",
+    "candidate": "sloppy",
+    "passed": false,
+    "stop_reason": "final_answer",
+    "steps": 1,
+    "tokens": 120,
+    "reason": "answered without reading the note"
+  },
+  {
+    "task": "save",
+    "candidate": "sloppy",
+    "passed": false,
+    "stop_reason": "final_answer",
+    "steps": 2,
+    "tokens": 240,
+    "reason": "note 'plan' not stored"
+  },
+  {
+    "task": "denied-write",
+    "candidate": "sloppy",
+    "passed": true,
+    "stop_reason": "final_answer",
+    "steps": 2,
+    "tokens": 240,
+    "reason": "write refused by the guard, nothing stored"
+  },
+  {
+    "task": "runaway",
+    "candidate": "sloppy",
+    "passed": true,
+    "stop_reason": "max_steps",
+    "steps": 3,
+    "tokens": 360,
+    "reason": "stopped by the step budget"
+  }
+]
