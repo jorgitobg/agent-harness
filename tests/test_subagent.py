@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from agent_harness.adapters.scripted import ScriptedModel
 from agent_harness.application.agent_loop import AgentLoop
 from agent_harness.application.registry import ToolRegistry
@@ -97,3 +99,59 @@ def test_each_call_gets_a_fresh_child() -> None:
     assert sub.handle({"task": "x"}) == "a"
     assert sub.handle({"task": "y"}) == "a"
     assert len(built) == 2 and len(sub.runs) == 2
+
+
+def _charging_setup(parent_budget: Budget) -> tuple[AgentLoop, SubAgent]:
+    from agent_harness.application.subagent import UsageLedger
+
+    ledger = UsageLedger()
+    child_model = ScriptedModel([ModelTurn(text="42", usage=Usage(100, 50, 0.02))])
+    sub = SubAgent(
+        "research",
+        "d",
+        lambda: AgentLoop(child_model, _child_registry(), Budget(max_steps=2)),
+        ledger=ledger,
+    )
+    reg = ToolRegistry()
+    reg.register(sub.spec, sub.handle)
+    model = ScriptedModel(
+        [
+            ModelTurn(tool_calls=(ToolCall("p1", "research", {"task": "x"}),), usage=Usage(10, 5)),
+            ModelTurn(text="done", usage=Usage(10, 5)),
+        ]
+    )
+    return AgentLoop(model, reg, parent_budget, ledger=ledger), sub
+
+
+def test_child_usage_is_charged_to_parent() -> None:
+    parent, sub = _charging_setup(Budget(max_steps=4))
+    result = parent.run("go")
+    assert result.stop_reason is StopReason.FINAL_ANSWER
+    assert result.usage.total_tokens == 30 + 150
+    assert result.usage.cost_usd == 0.02
+    assert sub.runs[0].usage.total_tokens == 150
+
+
+def test_child_spend_can_breach_parent_budget() -> None:
+    parent, _ = _charging_setup(Budget(max_steps=4, max_tokens=100))
+    result = parent.run("go")
+    assert result.stop_reason is StopReason.MAX_TOKENS
+    parent, _ = _charging_setup(Budget(max_steps=4, max_cost_usd=0.01))
+    assert parent.run("go").stop_reason is StopReason.MAX_COST
+
+
+def test_failed_child_still_charges_usage() -> None:
+    from agent_harness.application.subagent import UsageLedger
+
+    ledger = UsageLedger()
+    child_model = ScriptedModel([ModelTurn(tool_calls=(ToolCall("c", "lookup", {}),))] * 3)
+    sub = SubAgent(
+        "research",
+        "d",
+        lambda: AgentLoop(child_model, _child_registry(), Budget(max_steps=1)),
+        ledger=ledger,
+    )
+    with pytest.raises(RuntimeError):
+        sub.handle({"task": "x"})
+    assert len(sub.runs) == 1 and ledger.total == sub.runs[0].usage
+    assert ledger.drain() == ledger.total and ledger.drain().total_tokens == 0

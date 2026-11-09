@@ -1,5 +1,8 @@
 """Agent loop: model call -> tool calls -> model call, until a final answer or a budget stop.
 
+Sub-agent spend (optional ``ledger``) is added after each tool round and checked against
+the same token and cost limits.
+
 Context compaction (optional) runs before each model call; its summariser usage counts
 toward the budget.
 
@@ -24,6 +27,7 @@ from agent_harness.domain.tools import ToolCall, ToolResult, ToolSpec
 
 if TYPE_CHECKING:
     from agent_harness.application.context import ContextCompactor
+    from agent_harness.application.subagent import UsageLedger
 
 
 class ModelClient(Protocol):
@@ -51,7 +55,9 @@ class AgentLoop:
         dispatcher: ToolDispatcher | None = None,
         clock: Clock = time.monotonic,
         compactor: ContextCompactor | None = None,
+        ledger: UsageLedger | None = None,
     ) -> None:
+        self._ledger = ledger
         self._compactor = compactor
         self._model = model
         self._tools = tools
@@ -110,6 +116,12 @@ class AgentLoop:
 
             for call in turn.tool_calls:
                 transcript.append(Message(Role.TOOL, tool_result=self._dispatcher.dispatch(call)))
+
+            if self._ledger is not None:
+                usage = usage + self._ledger.drain()
+                breach = self._breach(usage, elapsed())
+                if breach is not None:
+                    return stop(breach)
 
     def _breach(self, usage: Usage, elapsed: float) -> StopReason | None:
         if elapsed >= self._budget.timeout_s:

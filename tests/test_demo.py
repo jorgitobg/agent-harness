@@ -77,3 +77,4 @@ def test_subagent_demo_keeps_child_work_out_of_parent(capsys: pytest.CaptureFixt
     assert "parent transcript: 4 messages, tool calls: ['delegate_reading']" in out
     assert "child transcript: 4 messages, steps=2, tokens=205" in out
     assert "read_note" not in out.split("child transcript")[0]
+    assert "tokens=330 (own 125 + child 205)" in out

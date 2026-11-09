@@ -23,7 +23,7 @@ from agent_harness.application.guardrails import GuardedRegistry
 from agent_harness.application.hooks import HookedDispatcher
 from agent_harness.application.registry import ToolRegistry
 from agent_harness.application.router import ModelRouter
-from agent_harness.application.subagent import SubAgent
+from agent_harness.application.subagent import SubAgent, UsageLedger
 from agent_harness.application.tracing import (
     ReplayDispatcher,
     ReplayModel,
@@ -176,6 +176,7 @@ def run_subagent() -> int:
         ]
     )
     child_registry = build_registry(with_read_note=True)
+    ledger = UsageLedger()
     sub = SubAgent(
         "delegate_reading",
         "Hand a read-only note question to a sub-agent; returns its final answer only.",
@@ -185,6 +186,7 @@ def run_subagent() -> int:
             Budget(max_steps=3),
             dispatcher=HookedDispatcher(child_registry, post=[RedactSecrets()]),
         ),
+        ledger=ledger,
     )
     parent_registry = ToolRegistry()
     parent_registry.register(sub.spec, sub.handle)
@@ -200,7 +202,7 @@ def run_subagent() -> int:
             ModelTurn(text="Summary ready.", usage=Usage(input_tokens=60, output_tokens=5)),
         ]
     )
-    result = AgentLoop(parent_model, parent_registry, Budget(max_steps=4)).run(
+    result = AgentLoop(parent_model, parent_registry, Budget(max_steps=4), ledger=ledger).run(
         "Summarise the deploy note."
     )
 
@@ -216,9 +218,10 @@ def run_subagent() -> int:
         f"child transcript: {len(child.transcript)} messages, steps={child.steps}, "
         f"tokens={child.usage.total_tokens}"
     )
+    own = result.usage.total_tokens - child.usage.total_tokens
     print(
         f"parent stop_reason={result.stop_reason.value} steps={result.steps} "
-        f"tokens={result.usage.total_tokens}"
+        f"tokens={result.usage.total_tokens} (own {own} + child {child.usage.total_tokens})"
     )
     return 0
 
