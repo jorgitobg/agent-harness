@@ -20,13 +20,13 @@ Early and built in the open, one user story per pull request.
 | Story | What | State |
 |---|---|---|
 | US1 | Typed tool registry with JSON Schema validation | ✅ done |
-| US2 | Permission levels, allow/deny lists, human confirmation | ✅ done (CLI prompt adapter pending) |
+| US2 | Permission levels, allow/deny lists, human confirmation | ✅ done, including `CliConfirmation`: a terminal prompt that fails closed (only `y`/`yes` approves; empty, noise, EOF or Ctrl-C refuse) |
 | US3 | Agent loop with step / token / cost / time budgets, typed stop reasons | ✅ done |
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
 | US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (wired into the demo: secret redaction) |
 | US6 | Sub-agents: a tool that runs a child loop with its own transcript and budget; only the final answer returns | ✅ done (`--subagent` demo). Child spend is charged to the parent budget through a shared `UsageLedger` (tokens and cost can stop the parent with `max_tokens`/`max_cost`) |
 | US7 | Model router with fallback (cloud ↔ local OpenAI-compatible) | ✅ router done (rule-based: failed tool or long transcript → strong tier; fallback on error; wired into `--router` demo). Not done: cost/latency-aware routing, real-model evaluation of the heuristic |
-| US8 | Tracing, replay and evals | ✅ tracing and replay done (`--trace` demo). ✅ eval runner over scripted models (`python -m agent_harness.evals`, results in [`evals/`](evals/results.md)). Not done: evals over real models, cost estimation when a model reports none |
+| US8 | Tracing, replay and evals | ✅ tracing and replay done (`--trace` demo). ✅ eval runner over scripted models (`python -m agent_harness.evals`, results in [`evals/`](evals/results.md)). ✅ `CostEstimator` fills in a cost from caller-supplied prices when a model reports tokens but no cost, so `max_cost_usd` still works (no built-in price table; an estimate, not an invoice). Not done: evals over real models |
 
 **Evals.** `python -m agent_harness.evals` runs a fixed set of four tasks (lookup, save, denied write, runaway loop) against two scripted candidates, one careful and one sloppy, and scores each run with code: tool calls made, note stored, stop reason. `--write` regenerates `evals/results.md` and `evals/results.json`; a test fails if the committed files drift from a fresh run. The candidates are scripted turn lists, so the table measures the harness and its scorers, not any real model. A real model plugs in through the same `ModelClient` port.
 
