@@ -20,7 +20,7 @@ Early and built in the open, one user story per pull request.
 | Story | What | State |
 |---|---|---|
 | US1 | Typed tool registry with JSON Schema validation | ✅ done |
-| US2 | Permission levels, allow/deny lists, human confirmation | ✅ done, including `CliConfirmation`: a terminal prompt that fails closed (only `y`/`yes` approves; empty, noise, EOF or Ctrl-C refuse) |
+| US2 | Permission levels, allow/deny lists, human confirmation | ✅ done, including `CliConfirmation`: a terminal prompt that fails closed (only `y`/`yes` approves; empty, noise, EOF or Ctrl-C refuse). The operator approves only what is shown in full: a tool name over 64 characters or arguments over 200 characters (after escaping) are refused without a prompt, and control characters, newlines and escape sequences are displayed as `\x..`/`\u....` escapes. Limits: no paging or spill of long arguments (nothing is written to disk), so a legitimately long call is refused rather than reviewed, and display escaping covers what Python treats as non-printable |
 | US3 | Agent loop with step / token / cost / time budgets, typed stop reasons | ✅ done |
 | US4 | Context compaction (token estimator, keep task + last N, summary via model port) | ✅ done |
 | US5 | Pre/post tool hooks (block, rewrite args, redact output; fail closed) | ✅ done (wired into the demo: secret redaction) |
