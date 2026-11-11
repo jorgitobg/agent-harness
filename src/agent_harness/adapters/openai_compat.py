@@ -113,7 +113,9 @@ def _as_cost(value: object) -> float | None:
     """Provider cost, or ``None`` when absent/malformed.
 
     Malformed usage metadata must not cost us the model's real output: an unusable cost
-    degrades to "unknown" instead of raising.
+    degrades to "unknown" instead of raising. This covers every value the JSON parser
+    accepts; an integer literal too long for ``json.loads`` fails earlier, in
+    ``parse_response``, and is reported as a non-chat-completion response.
     """
     if value is None:
         return None
