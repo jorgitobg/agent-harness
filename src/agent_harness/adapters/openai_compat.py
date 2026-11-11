@@ -9,6 +9,7 @@ replay recorded responses without a network.
 from __future__ import annotations
 
 import json
+import math
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
@@ -109,11 +110,22 @@ def _as_int(value: object) -> int:
 
 
 def _as_cost(value: object) -> float | None:
+    """Provider cost, or ``None`` when absent/malformed.
+
+    Malformed usage metadata must not cost us the model's real output: an unusable cost
+    degrades to "unknown" instead of raising.
+    """
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
-    return float(value)
+    try:
+        cost = float(value)
+    except (OverflowError, ValueError):
+        return None
+    if not math.isfinite(cost) or cost < 0:
+        return None
+    return cost
 
 
 def _parse_arguments(arguments: object) -> dict[str, Any]:

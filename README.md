@@ -182,6 +182,8 @@ replay identical to original (transcript and usage): True
 
 Every model and tool call becomes a span (name, latency, tokens, reported cost). The demo uses a fake clock, so latency is a fixed 50 ms per call and cost is $0 because the scripted model reports none; with a real adapter these come from the clock and the provider's usage. The trace is serialised to JSON lines and replayed by `ReplayModel` + `ReplayDispatcher` with no model and no tools registered; the replayed transcript and usage are compared with the original. Replay reproduces what was recorded, it does not re-evaluate a changed prompt.
 
+Traces recorded before unknown costs became `None` stored a missing or malformed provider cost as `0.0`. That number is indistinguishable from a genuinely reported zero when the file is read back, so old traces are read as known-free spend; the fix applies to new runs only, and rewriting recorded traces would falsify evidence.
+
 ## Design decisions
 
 - [ADR 0001](docs/adr/0001-hexagonal-core-without-agent-framework.md) — hexagonal core, no agent framework: more code, but every concept is visible and testable.

@@ -123,6 +123,24 @@ def test_odd_usage_values_are_ignored_not_trusted() -> None:
     assert turn.usage.total_tokens == 0 and turn.usage.cost_usd is None
 
 
+@pytest.mark.parametrize("cost", [-1, float("nan"), float("inf"), float("-inf"), 10**400])
+def test_malformed_provider_cost_is_unknown_without_losing_model_output(cost: object) -> None:
+    raw = json.dumps(
+        {"choices": [{"message": {"content": "ok"}}], "usage": {"cost": cost}}
+    ).encode()
+
+    turn = parse_response(raw)
+
+    assert turn.text == "ok"
+    assert turn.usage.cost_usd is None
+
+
+def test_explicit_zero_provider_cost_is_preserved() -> None:
+    raw = json.dumps({"choices": [{"message": {"content": "ok"}}], "usage": {"cost": 0}}).encode()
+
+    assert parse_response(raw).usage.cost_usd == 0.0
+
+
 def test_a_model_error_stops_the_loop_with_a_typed_reason() -> None:
     class Down:
         def post(self, url: str, headers: Mapping[str, str], body: bytes) -> bytes:

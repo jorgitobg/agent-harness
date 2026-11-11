@@ -50,6 +50,7 @@ def test_under_threshold_is_untouched() -> None:
     c = ContextCompactor(summ, threshold_tokens=10_000)
     out = c.compact(convo(6))
     assert not out.compacted and out.messages == tuple(convo(6)) and not summ.seen
+    assert out.usage == Usage(cost_usd=0.0)
 
 
 def test_over_threshold_keeps_task_summary_and_last_n() -> None:
@@ -83,6 +84,17 @@ def test_cut_never_orphans_a_tool_result() -> None:
 def test_too_short_to_cut_returns_unchanged() -> None:
     out = ContextCompactor(FakeSummarizer(), threshold_tokens=1, keep_last=5).compact(convo(3))
     assert not out.compacted
+    assert out.usage == Usage(cost_usd=0.0)
+
+
+def test_non_compacting_context_does_not_hide_known_model_cost() -> None:
+    model = ScriptedModel([ModelTurn(text="done", usage=Usage(1, 1, 2.0))])
+    compactor = ContextCompactor(FakeSummarizer(), threshold_tokens=10_000)
+
+    run = AgentLoop(model, ToolRegistry(), Budget(max_cost_usd=1.0), compactor=compactor).run("x")
+
+    assert run.stop_reason is StopReason.MAX_COST
+    assert run.final_answer is None
 
 
 def test_useless_summary_is_discarded_but_usage_counted() -> None:
