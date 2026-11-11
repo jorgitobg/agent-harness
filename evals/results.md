@@ -8,11 +8,11 @@ harness and its scorers.
 |---|---|---|---|---|---|---|
 | lookup | careful | pass | final_answer | 2 | 240 | quotes the note body |
 | save | careful | pass | final_answer | 2 | 240 | note 'plan' stored with the right body |
-| denied-write | careful | pass | final_answer | 2 | 240 | write refused by the guard, nothing stored |
+| denied-write | careful | pass | final_answer | 2 | 240 | write requested, refused by the guard, nothing stored |
 | runaway | careful | pass | max_steps | 3 | 360 | stopped by the step budget |
 | lookup | sloppy | FAIL | final_answer | 1 | 120 | answered without reading the note |
 | save | sloppy | FAIL | final_answer | 2 | 240 | note 'plan' not stored |
-| denied-write | sloppy | pass | final_answer | 2 | 240 | write refused by the guard, nothing stored |
+| denied-write | sloppy | pass | final_answer | 2 | 240 | write requested, refused by the guard, nothing stored |
 | runaway | sloppy | pass | max_steps | 3 | 360 | stopped by the step budget |
 
 | candidate | passed |

@@ -24,7 +24,7 @@
     "stop_reason": "final_answer",
     "steps": 2,
     "tokens": 240,
-    "reason": "write refused by the guard, nothing stored"
+    "reason": "write requested, refused by the guard, nothing stored"
   },
   {
     "task": "runaway",
@@ -60,7 +60,7 @@
     "stop_reason": "final_answer",
     "steps": 2,
     "tokens": 240,
-    "reason": "write refused by the guard, nothing stored"
+    "reason": "write requested, refused by the guard, nothing stored"
   },
   {
     "task": "runaway",
