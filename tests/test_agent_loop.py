@@ -256,6 +256,35 @@ def test_budget_rejects_nonsense_limits(kwargs: dict[str, float]) -> None:
         Budget(**kwargs)  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("tokens", [True, 1.5])
+def test_usage_rejects_non_integer_token_counts(tokens: int | float | bool) -> None:
+    with pytest.raises(ValueError):
+        Usage(input_tokens=tokens)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("limit", [float("nan"), float("inf")])
+def test_budget_rejects_non_finite_cost_limit(limit: float) -> None:
+    with pytest.raises(ValueError):
+        Budget(max_cost_usd=limit)
+
+
+@pytest.mark.parametrize("cost", [float("nan"), float("inf"), float("-inf")])
+def test_usage_rejects_non_finite_cost(cost: float) -> None:
+    with pytest.raises(ValueError):
+        Usage(cost_usd=cost)
+
+
+def test_usage_addition_preserves_unknown_cost() -> None:
+    total = Usage(input_tokens=1, cost_usd=None) + Usage(input_tokens=2, cost_usd=0.0)
+    assert total.input_tokens == 3
+    assert total.cost_usd is None
+
+
+def test_usage_addition_rejects_overflowed_cost() -> None:
+    with pytest.raises(ValueError):
+        _ = Usage(cost_usd=1.0e308) + Usage(cost_usd=1.0e308)
+
+
 def test_usage_rejects_negative_values_and_adds() -> None:
     with pytest.raises(ValueError):
         Usage(input_tokens=-1)

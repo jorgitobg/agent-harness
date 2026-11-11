@@ -68,7 +68,7 @@ class AgentLoop:
     def run(self, prompt: str) -> AgentRun:
         started = self._clock()
         transcript: list[Message] = [Message(Role.USER, content=prompt)]
-        usage = Usage()
+        usage = Usage(cost_usd=0.0)
         steps = 0
         specs = tuple(self._tools.specs())
 
@@ -128,6 +128,6 @@ class AgentLoop:
             return StopReason.TIMEOUT
         if usage.total_tokens > self._budget.max_tokens:
             return StopReason.MAX_TOKENS
-        if usage.cost_usd > self._budget.max_cost_usd:
+        if usage.cost_usd is not None and usage.cost_usd > self._budget.max_cost_usd:
             return StopReason.MAX_COST
         return None

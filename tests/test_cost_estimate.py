@@ -26,8 +26,18 @@ def test_reported_cost_is_never_overwritten() -> None:
 
 
 def test_zero_tokens_stay_free() -> None:
-    turn, _ = _est(ModelTurn(usage=Usage()))
-    assert turn.usage.cost_usd == 0
+    turn, _ = _est(ModelTurn(usage=Usage(cost_usd=0.0)))
+    assert turn.usage.cost_usd == 0.0
+
+
+def test_missing_cost_is_estimated_but_reported_zero_is_preserved() -> None:
+    unknown, estimator = _est(ModelTurn(usage=Usage(10, 0, cost_usd=None)))
+    assert unknown.usage.cost_usd == pytest.approx(0.00002)
+    assert estimator.estimated_turns == 1
+
+    free, estimator = _est(ModelTurn(usage=Usage(10, 0, cost_usd=0.0)))
+    assert free.usage.cost_usd == 0.0
+    assert estimator.estimated_turns == 0
 
 
 def test_negative_prices_rejected() -> None:

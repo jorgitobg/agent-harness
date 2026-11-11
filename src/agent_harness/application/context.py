@@ -25,6 +25,9 @@ TokenEstimator = Callable[[Sequence[Message]], int]
 
 SUMMARY_PREFIX = "[summary of earlier turns]"
 
+#: A compaction that did not run spent nothing — and that zero is *known*, not unknown.
+_NO_USAGE = Usage(cost_usd=0.0)
+
 
 def estimate_tokens(messages: Sequence[Message]) -> int:
     """Rough, dependency-free estimate: about 4 characters per token."""
@@ -94,14 +97,16 @@ class ContextCompactor:
         self._estimate = estimator
 
     def compact(self, messages: Sequence[Message]) -> Compaction:
+        # A no-op costs nothing, and that is *known*: returning ``Usage()`` would read as an
+        # unknown cost and the loop adds it to the run total, hiding real spend from the budget.
         original = tuple(messages)
         if self._estimate(original) <= self._threshold:
-            return Compaction(original, Usage(), False)
+            return Compaction(original, _NO_USAGE, False)
         cut = len(original) - self._keep_last
         while cut > 1 and original[cut].role is Role.TOOL:
             cut -= 1
         if cut <= 1:
-            return Compaction(original, Usage(), False)
+            return Compaction(original, _NO_USAGE, False)
         turn = self._summarizer.summarize(original[1:cut])
         summary = Message(Role.USER, content=f"{SUMMARY_PREFIX} {turn.text}")
         result = (original[0], summary, *original[cut:])
