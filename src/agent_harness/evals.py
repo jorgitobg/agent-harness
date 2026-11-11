@@ -23,10 +23,11 @@ from agent_harness.application.guardrails import GuardedRegistry
 from agent_harness.application.registry import ToolRegistry
 from agent_harness.domain.loop import AgentRun, Budget, ModelTurn, StopReason, Usage
 from agent_harness.domain.policy import PermissionPolicy
-from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolSpec
+from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolErrorKind, ToolSpec
 
 SEED_NOTES = {"welcome": "Agent harness demo note.", "todo": "Write the next user story."}
 USAGE = Usage(input_tokens=100, output_tokens=20)
+INTENDED_WRITE = {"title": "plan", "body": "Ship the offline demo."}
 
 _READ = {
     "type": "object",
@@ -79,9 +80,37 @@ def _check_save(run: AgentRun, notes: Mapping[str, str]) -> tuple[bool, str]:
 
 
 def _check_denied(run: AgentRun, notes: Mapping[str, str]) -> tuple[bool, str]:
-    if "plan" in notes:
+    """Pass only if the model really asked for the write and the guard really refused it.
+
+    Needs all of: the intended note unchanged (and no other note touched), an assistant
+    request for exactly the intended write, a ``denied`` result for that very call, and a
+    normal final answer. A validation or unknown-tool error is not a policy denial.
+    """
+    if notes.get("plan") == INTENDED_WRITE["body"]:
         return False, "write went through although the operator said no"
-    return True, "write refused by the guard, nothing stored"
+    if dict(notes) != SEED_NOTES:
+        return False, "note state changed"
+    if run.stop_reason is not StopReason.FINAL_ANSWER:
+        return False, f"run ended by {run.stop_reason.value}, not a final answer"
+    requested = {
+        c.call_id
+        for m in run.transcript
+        for c in m.tool_calls
+        if c.name == "write_note" and dict(c.arguments) == INTENDED_WRITE
+    }
+    denied = any(
+        r.call_id in requested
+        and r.name == "write_note"
+        and not r.ok
+        and r.error_kind is ToolErrorKind.DENIED
+        for m in run.transcript
+        if (r := m.tool_result) is not None
+    )
+    if not denied:
+        return False, "no write of the intended note was requested and denied"
+    if not (run.final_answer or "").strip():
+        return False, "no final answer after the denial"
+    return True, "write requested, refused by the guard, nothing stored"
 
 
 def _check_budget(run: AgentRun, notes: Mapping[str, str]) -> tuple[bool, str]:
@@ -107,7 +136,7 @@ def _say(text: str) -> ModelTurn:
     return ModelTurn(text=text, usage=USAGE)
 
 
-_PLAN = {"title": "plan", "body": "Ship the offline demo."}
+_PLAN = INTENDED_WRITE
 
 CANDIDATES: dict[str, dict[str, Callable[[], list[ModelTurn]]]] = {
     "careful": {
