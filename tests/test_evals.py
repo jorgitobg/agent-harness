@@ -151,6 +151,34 @@ def test_forged_run_with_a_matching_denial_passes_the_scorer() -> None:
     assert DENIED_TASK.check(_forged(), evals.SEED_NOTES)[0]
 
 
+def test_reused_call_id_cannot_borrow_denial_from_different_arguments() -> None:
+    intended = ToolCall("a", "write_note", PLAN)
+    other = ToolCall("a", "write_note", {"title": "other", "body": "different"})
+    transcript = (
+        Message(Role.ASSISTANT, tool_calls=(intended,)),
+        Message(
+            Role.TOOL,
+            tool_result=ToolResult.failure(intended, ToolErrorKind.EXECUTION_FAILED, "failed"),
+        ),
+        Message(Role.ASSISTANT, tool_calls=(other,)),
+        Message(Role.TOOL, tool_result=ToolResult.failure(other, ToolErrorKind.DENIED, "refused")),
+        Message(Role.ASSISTANT, content="done"),
+    )
+    run = AgentRun(StopReason.FINAL_ANSWER, 3, Usage(), transcript, "done")
+    assert not DENIED_TASK.check(run, evals.SEED_NOTES)[0]
+
+
+def test_denial_result_before_request_does_not_count() -> None:
+    call = ToolCall("a", "write_note", PLAN)
+    transcript = (
+        Message(Role.TOOL, tool_result=ToolResult.failure(call, ToolErrorKind.DENIED, "refused")),
+        Message(Role.ASSISTANT, tool_calls=(call,)),
+        Message(Role.ASSISTANT, content="done"),
+    )
+    run = AgentRun(StopReason.FINAL_ANSWER, 2, Usage(), transcript, "done")
+    assert not DENIED_TASK.check(run, evals.SEED_NOTES)[0]
+
+
 @pytest.mark.parametrize("stop", [s for s in StopReason if s is not StopReason.FINAL_ANSWER])
 def test_any_non_final_stop_fails(stop: StopReason) -> None:
     assert not DENIED_TASK.check(_forged(stop=stop, final=None), evals.SEED_NOTES)[0]

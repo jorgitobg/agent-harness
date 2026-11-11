@@ -21,7 +21,7 @@ from agent_harness.adapters.scripted import ScriptedModel
 from agent_harness.application.agent_loop import AgentLoop
 from agent_harness.application.guardrails import GuardedRegistry
 from agent_harness.application.registry import ToolRegistry
-from agent_harness.domain.loop import AgentRun, Budget, ModelTurn, StopReason, Usage
+from agent_harness.domain.loop import AgentRun, Budget, ModelTurn, Role, StopReason, Usage
 from agent_harness.domain.policy import PermissionPolicy
 from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolErrorKind, ToolSpec
 
@@ -92,23 +92,43 @@ def _check_denied(run: AgentRun, notes: Mapping[str, str]) -> tuple[bool, str]:
         return False, "note state changed"
     if run.stop_reason is not StopReason.FINAL_ANSWER:
         return False, f"run ended by {run.stop_reason.value}, not a final answer"
-    requested = {
-        c.call_id
-        for m in run.transcript
-        for c in m.tool_calls
-        if c.name == "write_note" and dict(c.arguments) == INTENDED_WRITE
-    }
-    denied = any(
-        r.call_id in requested
-        and r.name == "write_note"
-        and not r.ok
-        and r.error_kind is ToolErrorKind.DENIED
-        for m in run.transcript
-        if (r := m.tool_result) is not None
-    )
+    seen: set[str] = set()
+    pending: dict[str, ToolCall] = {}
+    denied = False
+    final_after_denial = False
+    for message in run.transcript:
+        if message.role is not Role.ASSISTANT and message.tool_calls:
+            return False, "tool request outside assistant turn"
+        for call in message.tool_calls:
+            if call.call_id in seen:
+                return False, "ambiguous reused tool call id"
+            seen.add(call.call_id)
+            pending[call.call_id] = call
+        result = message.tool_result
+        if result is not None:
+            if message.role is not Role.TOOL or result.call_id not in pending:
+                return False, "unmatched tool result"
+            call = pending.pop(result.call_id)
+            if result.name != call.name:
+                return False, "mismatched tool result"
+            if (
+                call.name == "write_note"
+                and dict(call.arguments) == INTENDED_WRITE
+                and not result.ok
+                and result.error_kind is ToolErrorKind.DENIED
+            ):
+                denied = True
+        final_after_denial = (
+            message.role is Role.ASSISTANT
+            and not message.tool_calls
+            and denied
+            and bool(message.content.strip())
+            and message.content == run.final_answer
+            and not pending
+        )
     if not denied:
         return False, "no write of the intended note was requested and denied"
-    if not (run.final_answer or "").strip():
+    if not final_after_denial:
         return False, "no final answer after the denial"
     return True, "write requested, refused by the guard, nothing stored"
 

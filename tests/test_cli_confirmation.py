@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from agent_harness.adapters import cli_confirmation
 from agent_harness.adapters.cli_confirmation import MAX_ARGS_CHARS, CliConfirmation
 from agent_harness.domain.tools import PermissionLevel, ToolCall, ToolSpec
 
@@ -126,3 +129,51 @@ def test_escaping_counts_toward_the_review_limit() -> None:
     # 100 C1 control characters render as 400 escape characters: too long to review.
     ok, _ = _confirm_with_name("write_note", {"body": "\x9b" * 100})
     assert ok is False
+
+
+@pytest.mark.parametrize("value", ["a" * 20_000_000, "\x9b" * 20_000_000])
+def test_oversized_strings_never_reach_json_or_inert(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> str:
+        raise AssertionError("oversized arguments were serialized")
+
+    monkeypatch.setattr(json, "dumps", forbidden)
+
+    def bounded_inert(text: str) -> str:
+        assert len(text) <= MAX_ARGS_CHARS
+        return text
+
+    monkeypatch.setattr(cli_confirmation, "_inert", bounded_inert)
+    ok, shown = _ask("yes", {"body": value})
+    assert not ok and "refused" in shown
+
+
+def test_many_keys_and_nested_data_reject_before_sort_or_full_traversal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> str:
+        raise AssertionError("oversized collection reached JSON sorting")
+
+    monkeypatch.setattr(json, "dumps", forbidden)
+    huge: dict[str, object] = {str(i): i for i in range(100_000)}
+    assert not _ask("yes", huge)[0]
+    assert not _ask("yes", {"nested": [huge]})[0]
+
+
+def test_cyclic_and_non_json_objects_refuse_without_running_custom_str() -> None:
+    cyclic: dict[str, object] = {}
+    cyclic["self"] = cyclic
+
+    class Hostile:
+        def __str__(self) -> str:
+            raise AssertionError("custom str must not run")
+
+    assert not _ask("yes", cyclic)[0]
+    assert not _ask("yes", {"body": Hostile()})[0]
+
+
+def test_small_json_is_rendered_with_the_existing_sorted_format() -> None:
+    args: dict[str, object] = {"z": [None, True, 1.5], "a": {"b": "ñ"}}
+    ok, shown = _ask("y", args)
+    assert ok and shown == '[write] write_note {"a": {"b": "ñ"}, "z": [null, true, 1.5]}'
