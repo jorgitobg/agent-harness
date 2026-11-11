@@ -120,7 +120,7 @@ def test_odd_usage_values_are_ignored_not_trusted() -> None:
         }
     ).encode()
     turn = parse_response(raw)
-    assert turn.usage.total_tokens == 0 and turn.usage.cost_usd == 0.0
+    assert turn.usage.total_tokens == 0 and turn.usage.cost_usd is None
 
 
 def test_a_model_error_stops_the_loop_with_a_typed_reason() -> None:

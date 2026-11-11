@@ -6,6 +6,7 @@ the loop; adapters provide the model.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -43,33 +44,49 @@ class Budget:
             raise ValueError("max_steps must be >= 1")
         if self.max_tokens < 1:
             raise ValueError("max_tokens must be >= 1")
-        if self.max_cost_usd < 0:
-            raise ValueError("max_cost_usd must be >= 0")
-        if self.timeout_s <= 0:
-            raise ValueError("timeout_s must be > 0")
+        if not math.isfinite(self.max_cost_usd) or self.max_cost_usd < 0:
+            raise ValueError("max_cost_usd must be finite and >= 0")
+        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0:
+            raise ValueError("timeout_s must be finite and > 0")
 
 
 @dataclass(frozen=True, slots=True)
 class Usage:
-    """Tokens and cost of one model call, or the running sum over a run."""
+    """Token counts and cost; ``None`` means the cost is unknown, not free."""
 
     input_tokens: int = 0
     output_tokens: int = 0
-    cost_usd: float = 0.0
+    cost_usd: float | None = None
 
     def __post_init__(self) -> None:
-        if self.input_tokens < 0 or self.output_tokens < 0 or self.cost_usd < 0:
-            raise ValueError("usage values must be non-negative")
+        if (
+            type(self.input_tokens) is not int
+            or self.input_tokens < 0
+            or type(self.output_tokens) is not int
+            or self.output_tokens < 0
+        ):
+            raise ValueError("token counts must be non-negative integers")
+        if self.cost_usd is not None and (
+            type(self.cost_usd) not in (int, float)
+            or not math.isfinite(self.cost_usd)
+            or self.cost_usd < 0
+        ):
+            raise ValueError("cost_usd must be finite and >= 0, or None")
 
     @property
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
 
     def __add__(self, other: Usage) -> Usage:
+        cost = (
+            self.cost_usd + other.cost_usd
+            if self.cost_usd is not None and other.cost_usd is not None
+            else None
+        )
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
-            cost_usd=self.cost_usd + other.cost_usd,
+            cost_usd=cost,
         )
 
 

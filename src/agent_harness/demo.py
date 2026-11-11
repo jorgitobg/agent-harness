@@ -242,14 +242,14 @@ def run_trace() -> int:
     original = loop.run("Find the next step in my notes and save the plan.")
     for i, span in enumerate(tracer.spans, 1):
         u = span.usage
+        cost = f"${u.cost_usd:.4f}" if u.cost_usd is not None else "unknown"
         print(
             f"span {i:>2} {span.kind.value:<5} {span.name:<14} "
-            f"latency={span.latency_s * 1000:.0f}ms tokens={u.total_tokens} cost=${u.cost_usd:.4f}"
+            f"latency={span.latency_s * 1000:.0f}ms tokens={u.total_tokens} cost={cost}"
         )
     total = tracer.total_usage()
-    print(
-        f"trace: {len(tracer.spans)} spans, tokens={total.total_tokens}, cost=${total.cost_usd:.4f}"
-    )
+    total_cost = f"${total.cost_usd:.4f}" if total.cost_usd is not None else "unknown"
+    print(f"trace: {len(tracer.spans)} spans, tokens={total.total_tokens}, cost={total_cost}")
 
     spans = Tracer.spans_from_jsonl(tracer.to_jsonl())  # through JSON, as a saved trace would be
     replayed = AgentLoop(

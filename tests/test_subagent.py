@@ -116,8 +116,10 @@ def _charging_setup(parent_budget: Budget) -> tuple[AgentLoop, SubAgent]:
     reg.register(sub.spec, sub.handle)
     model = ScriptedModel(
         [
-            ModelTurn(tool_calls=(ToolCall("p1", "research", {"task": "x"}),), usage=Usage(10, 5)),
-            ModelTurn(text="done", usage=Usage(10, 5)),
+            ModelTurn(
+                tool_calls=(ToolCall("p1", "research", {"task": "x"}),), usage=Usage(10, 5, 0.0)
+            ),
+            ModelTurn(text="done", usage=Usage(10, 5, 0.0)),
         ]
     )
     return AgentLoop(model, reg, parent_budget, ledger=ledger), sub

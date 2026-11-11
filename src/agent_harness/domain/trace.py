@@ -34,7 +34,7 @@ class Span:
 
     @property
     def usage(self) -> Usage:
-        return self.turn.usage if self.turn is not None else Usage()
+        return self.turn.usage if self.turn is not None else Usage(cost_usd=0.0)
 
 
 def _call_to_dict(call: ToolCall) -> dict[str, Any]:

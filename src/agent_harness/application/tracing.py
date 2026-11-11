@@ -31,7 +31,7 @@ class Tracer:
         self.spans: list[Span] = []
 
     def total_usage(self) -> Usage:
-        total = Usage()
+        total = Usage(cost_usd=0.0)
         for span in self.spans:
             total = total + span.usage
         return total

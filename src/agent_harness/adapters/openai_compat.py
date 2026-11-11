@@ -108,9 +108,11 @@ def _as_int(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
 
 
-def _as_cost(value: object) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
-        return 0.0
+def _as_cost(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
     return float(value)
 
 

@@ -33,8 +33,8 @@ class UsageLedger:
     """Collects usage that happened outside the parent's own model calls."""
 
     def __init__(self) -> None:
-        self._pending = Usage()
-        self.total = Usage()
+        self._pending = Usage(cost_usd=0.0)
+        self.total = Usage(cost_usd=0.0)
 
     def charge(self, usage: Usage) -> None:
         self._pending = self._pending + usage
@@ -42,7 +42,7 @@ class UsageLedger:
 
     def drain(self) -> Usage:
         """Return usage charged since the last drain and reset it (``total`` keeps counting)."""
-        pending, self._pending = self._pending, Usage()
+        pending, self._pending = self._pending, Usage(cost_usd=0.0)
         return pending
 
 
