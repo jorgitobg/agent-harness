@@ -137,7 +137,7 @@ operator answer to confirmations: no
   tool write_note: refused/failed (denied) -> operator refused tool 'write_note'
 confirmations asked: [('write_note', 'write')]
 stop_reason=final_answer steps=4
-final_answer="Done: the plan is saved as note 'plan'."
+final_answer='The operator refused the write, so the plan was not saved.'
 notes now: ['deploy', 'todo', 'welcome']
 
 $ python -m agent_harness.demo --router
@@ -162,9 +162,11 @@ parent stop_reason=final_answer steps=2 tokens=330 (own 125 + child 205)
 
 The parent transcript holds one tool result (the child's final answer); the child's `read_note` call and redaction stay inside the child's own 4-message transcript.  Its 205 tokens are charged to the parent through the shared ledger (total 330), so a sub-agent cannot spend outside the parent budget.
 
-Note the last line of the `--deny` run: the scripted model does not read tool results, so it
-still claims success. The guard did its job (`notes now` has no `plan`). A real model would
-read the `denied` result and react; the harness does not rely on the model to enforce policy.
+Note the closing line of the `--deny` run: the scripted model does not read tool results, so the
+demo scripts a different final answer for the refused case (it says the plan was not saved)
+rather than letting it claim success. The guard did its job either way (`notes now` has no
+`plan`). A real model would read the `denied` result and react; the harness does not rely on the
+model to enforce policy.
 
 ```text
 $ python -m agent_harness.demo --trace
