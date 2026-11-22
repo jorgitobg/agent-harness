@@ -137,7 +137,7 @@ operator answer to confirmations: no
   tool write_note: refused/failed (denied) -> operator refused tool 'write_note'
 confirmations asked: [('write_note', 'write')]
 stop_reason=final_answer steps=4
-final_answer="Done: the plan is saved as note 'plan'."
+final_answer='The operator refused the write, so the plan was not saved.'
 notes now: ['deploy', 'todo', 'welcome']
 
 $ python -m agent_harness.demo --router

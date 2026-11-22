@@ -125,8 +125,11 @@ def build_registry(*, with_read_note: bool = False) -> ToolRegistry:
     return registry
 
 
-def scripted_turns() -> list[ModelTurn]:
+def scripted_turns(*, write_approved: bool = True) -> list[ModelTurn]:
+    """The scripted conversation; its closing line must match what the operator allowed."""
     usage = Usage(input_tokens=120, output_tokens=30, cost_usd=0.0)
+    final = "Done: the plan is saved as note 'plan'."
+    refused_final = "The operator refused the write, so the plan was not saved."
     return [
         ModelTurn(
             text="Let me look for notes about the next step.",
@@ -149,7 +152,7 @@ def scripted_turns() -> list[ModelTurn]:
             ),
             usage=usage,
         ),
-        ModelTurn(text="Done: the plan is saved as note 'plan'.", usage=usage),
+        ModelTurn(text=final if write_approved else refused_final, usage=usage),
     ]
 
 
@@ -268,7 +271,7 @@ def run(approve: bool, router: bool = False) -> int:
     registry = build_registry(with_read_note=True)
     confirmation = ScriptedConfirmation(answers=[approve])
     guarded = GuardedRegistry(registry, PermissionPolicy(), confirmation)
-    scripted = ScriptedModel(scripted_turns())
+    scripted = ScriptedModel(scripted_turns(write_approved=approve))
     routed = ModelRouter(_Offline(), scripted) if router else None
     loop = AgentLoop(
         routed if routed is not None else scripted,

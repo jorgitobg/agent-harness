@@ -78,3 +78,25 @@ def test_subagent_demo_keeps_child_work_out_of_parent(capsys: pytest.CaptureFixt
     assert "child transcript: 4 messages, steps=2, tokens=205" in out
     assert "read_note" not in out.split("child transcript")[0]
     assert "tokens=330 (own 125 + child 205)" in out
+
+
+def test_refused_write_final_answer_does_not_claim_it_was_saved(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert demo.main(["--deny"]) == 0
+    out = capsys.readouterr().out
+
+    assert "plan" not in demo.NOTES
+    assert "the plan is saved" not in out
+    assert "not saved" in out.split("final_answer=")[1].splitlines()[0]
+
+
+def test_approved_and_router_demos_still_report_the_real_write(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for argv in ([], ["--router"]):
+        demo.NOTES.pop("plan", None)
+        assert demo.main(argv) == 0
+        out = capsys.readouterr().out
+        assert "final_answer=\"Done: the plan is saved as note 'plan'.\"" in out
+        assert "plan" in demo.NOTES
